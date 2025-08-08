@@ -5,12 +5,17 @@
 #ifndef LC3VM_EXECUTION_HPP
 #define LC3VM_EXECUTION_HPP
 #include <cstdint>
+#include <iostream>
 #include <array>
 #include <functional>
+#include "Registers.hpp"
 
 namespace Opcodes {
 
     using opcode_func_t = std::function<void(std::uint16_t)>;
+
+    std::uint16_t sign_extend(std::uint16_t, std::size_t);
+    void update_cond(std::uint16_t);
 
     enum {
         BR,    /* Branch */
@@ -32,68 +37,106 @@ namespace Opcodes {
         COUNT, /* Count of all Opcodes (16) */
     };
 
-    /* Executes break instruction */
-    void exec_BR(std::uint16_t);
+    template <int opcode>
+    void exec(std::uint16_t) {
+        /* Default unspecialized implementation. Panics as valid instructions are only specialized templates */
+        std::cout << "Invalid Opcode: " << opcode << '\n';
+        std::abort();
+    }
 
-    /* Executes add instruction */
-    void exec_ADD(std::uint16_t);
+    // Encoding: https://www.jmeiners.com/lc3-vm/img/add_layout.gif
+    template <>
+    inline void exec<ADD>(const std::uint16_t op) {
+        const std::uint16_t dr ( op >> 9 & 7 ); // destination register
+        const std::uint16_t sr1 ( op >> 6 & 7 ); // operand register
 
-    /* Executes load instruction */
-    void exec_LD(std::uint16_t);
+        // are we in imm5 mode? evaluates to true if we are.
+        if (op >> 5 & 1) {
+            Registers::vals[dr] = Registers::vals[sr1] + sign_extend(op & 0x1F, 5);
+        } else {
+            Registers::vals[dr] = Registers::vals[sr1] + Registers::vals[op & 7 /* second operand register */];
+        }
 
-    /* Executes store instruction */
-    void exec_ST(std::uint16_t);
+        update_cond(dr);
+    }
 
-    /* Executes jump register instruction */
-    void exec_JSR(std::uint16_t);
+    template <>
+    inline void exec<LD>(const std::uint16_t) {
 
-    /* Executes bitwise and instruction */
-    void exec_AND(std::uint16_t);
+    }
 
-    /* Executes load direct register instruction */
-    void exec_LDR(std::uint16_t);
+    template <>
+    inline void exec<ST>(const std::uint16_t) {
 
-    /* Executes store direct register instruction */
-    void exec_STR(std::uint16_t);
+    }
 
-    /* Executes bitwise not instruction */
-    void exec_NOT(std::uint16_t);
+    template <>
+    inline void exec<JSR>(const std::uint16_t) {
 
-    /* Executes load indirect instruction */
-    void exec_LDI(std::uint16_t);
+    }
 
-    /* Executes store indirect instruction */
-    void exec_STI(std::uint16_t);
+    template <>
+    inline void exec<AND>(const std::uint16_t) {
 
-    /* Executes jump instruction */
-    void exec_JMP(std::uint16_t);
+    }
 
-    /* Executes load effective address instruction */
-    void exec_LEA(std::uint16_t);
+    template <>
+    inline void exec<LDR>(const std::uint16_t) {
 
-    /* Executes trap instruction */
-    void exec_TRAP(std::uint16_t);
+    }
 
-    /* Default catch all for forbidden instructions. Panics and shuts down VM */
-    void exec_default(std::uint16_t);
+    template <>
+    inline void exec<STR>(const std::uint16_t) {
+
+    }
+
+    template <>
+    inline void exec<NOT>(const std::uint16_t) {
+
+    }
+
+    template <>
+    inline void exec<LDI>(const std::uint16_t) {
+
+    }
+
+    template <>
+    inline void exec<STI>(const std::uint16_t) {
+
+    }
+
+    template <>
+    inline void exec<JMP>(const std::uint16_t) {
+
+    }
+
+    template <>
+    inline void exec<LEA>(const std::uint16_t) {
+
+    }
+
+    template <>
+    inline void exec<TRAP>(const std::uint16_t) {
+
+    }
 
     inline const std::array opcode_funcs {
-        opcode_func_t(&exec_BR),
-        opcode_func_t(&exec_ADD),
-        opcode_func_t(&exec_LD),
-        opcode_func_t(&exec_ST),
-        opcode_func_t(&exec_JSR),
-        opcode_func_t(&exec_AND),
-        opcode_func_t(&exec_LDR),
-        opcode_func_t(&exec_STR),
-        opcode_func_t(&exec_default),
-        opcode_func_t(&exec_NOT),
-        opcode_func_t(&exec_LDI),
-        opcode_func_t(&exec_STI),
-        opcode_func_t(&exec_JMP),
-        opcode_func_t(&exec_default),
-        opcode_func_t(&exec_LEA),
-        opcode_func_t(&exec_TRAP),
+        opcode_func_t(&exec<BR>),
+        opcode_func_t(&exec<ADD>),
+        opcode_func_t(&exec<LD>),
+        opcode_func_t(&exec<ST>),
+        opcode_func_t(&exec<JSR>),
+        opcode_func_t(&exec<AND>),
+        opcode_func_t(&exec<LDR>),
+        opcode_func_t(&exec<STR>),
+        opcode_func_t(&exec<RES> /* Panics if executed */),
+        opcode_func_t(&exec<NOT>),
+        opcode_func_t(&exec<LDI>),
+        opcode_func_t(&exec<STI>),
+        opcode_func_t(&exec<JMP>),
+        opcode_func_t(&exec<RES> /* Panics if executed */),
+        opcode_func_t(&exec<LEA>),
+        opcode_func_t(&exec<TRAP>),
     };
 }
 
