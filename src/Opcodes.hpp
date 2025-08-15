@@ -48,203 +48,47 @@ namespace Opcodes {
         std::abort();
     }
 
-    /*
-     * Encoding: https://www.jmeiners.com/lc3-vm/supplies/lc3-isa.pdf
-     * Increments program counter with offset if any bits 9 through 11 are
-     * set and that bit also matches the one that is in the cond register.
-     */
     template<>
-    inline void exec<BR>(const std::uint16_t op) {
-        if (op >> 9 & 7 && Registers::vals[Registers::COND]) {
-            Registers::vals[Registers::PC] += sign_extend(op & 0x1FF, 9);
-        }
-    }
+    void exec<BR>(std::uint16_t);
 
-    /* Encoding: https://www.jmeiners.com/lc3-vm/img/add_layout.gif
-     * Adds two numbers together.
-     */
     template <>
-    inline void exec<ADD>(const std::uint16_t op) {
-        const std::uint16_t dr ( op >> 9 & 7 ); // destination register
-        const std::uint16_t sr1 ( op >> 6 & 7 ); // operand register
+    void exec<ADD>(std::uint16_t);
 
-        // are we in imm5 mode? evaluates to true if we are.
-        if (op >> 5 & 1) {
-            Registers::vals[dr] = Registers::vals[sr1] + sign_extend(op & 0x1F, 5);
-        } else {
-            const std::uint16_t sr2 ( op & 7 );
-            Registers::vals[dr] = Registers::vals[sr1] + Registers::vals[sr2];
-        }
-
-        update_cond(dr);
-    }
-
-    /*
-     * Encoding: https://www.jmeiners.com/lc3-vm/supplies/lc3-isa.pdf
-     * Loads value behind program counter + memory offset into direct register
-     */
     template <>
-    inline void exec<LD>(const std::uint16_t op) {
-        const std::uint16_t mem_offset { sign_extend(op & 0x1FF, 9) };
-        const std::uint16_t dr ( op >> 9 & 7 );
+    void exec<LD>(std::uint16_t);
 
-        Registers::vals[dr] = Memory::mem[Registers::vals[Registers::PC] + mem_offset];
-
-        update_cond(dr);
-    }
-
-    /*
-     * Encoding: https://www.jmeiners.com/lc3-vm/supplies/lc3-isa.pdf
-     * Loads value from register sr into memory with the address specified
-     * by adding the memory offset to the program counter.
-     */
     template <>
-    inline void exec<ST>(const std::uint16_t op) {
-        const std::uint16_t sr ( op >> 9 & 7 );
-        const std::uint16_t mem_offset { sign_extend(op & 0x1FF, 9) };
+    void exec<ST>(std::uint16_t);
 
-        Memory::mem[Registers::vals[Registers::PC] + mem_offset] = Registers::vals[sr];
-    }
-
-    /* Encoding: https://www.jmeiners.com/lc3-vm/supplies/lc3-isa.pdf
-     * Sets the program counter to be equal to the value specified in offset
-     * by default or value in the specified register. Program counter value
-     * is first saved in register 7.
-     */
     template <>
-    inline void exec<JSR>(const std::uint16_t op) {
-        Registers::vals[Registers::R7] = Registers::vals[Registers::PC];
+    void exec<JSR>(std::uint16_t);
 
-        if (op >> 11 & 1 /* use offset or not (11th bit)*/) {
-            Registers::vals[Registers::PC] += sign_extend(op & 0x7FF, 11);
-        } else {
-            const std::uint16_t base_r ( op >> 6 & 7);
-            Registers::vals[Registers::PC] = Registers::vals[base_r];
-        }
-    }
-
-    /* Encoding: https://www.jmeiners.com/lc3-vm/supplies/lc3-isa.pdf
-     * When bit 5 is zero, bitwise and the value located in sr2
-     * otherwise when in imm5 mode use the hardcoded value in that
-     * opcode.
-     */
     template <>
-    inline void exec<AND>(const std::uint16_t op) {
-        const std::uint16_t sr1 ( op >> 6 & 7 );
-        const std::uint16_t dr ( op >> 9 & 7 );
+    void exec<AND>(std::uint16_t);
 
-        if (op >> 5 & 1) {
-            Registers::vals[dr] = Registers::vals[sr1] & sign_extend(op & 0x1F, 5);
-        } else {
-            const std::uint16_t sr2 ( op & 7 );
-            Registers::vals[dr] = Registers::vals[sr1] & Registers::vals[sr2];
-        }
-    }
-
-    /*
-     * Encoding: https://www.jmeiners.com/lc3-vm/supplies/lc3-isa.pdf
-     * Loads the value at the memory address computed by getting the value
-     * of the base register and adding the offset into the direct register.
-     */
     template <>
-    inline void exec<LDR>(const std::uint16_t op) {
-        const std::uint16_t dr ( op >> 9 & 7);
-        const std::uint16_t base_r ( op >> 6 & 7 );
-        const std::uint16_t mem_offset { sign_extend(op & 0x3F, 6) };
+    void exec<LDR>(std::uint16_t);
 
-        Registers::vals[dr] = Memory::mem[Registers::vals[base_r] + mem_offset];
-
-        update_cond(Registers::vals[dr]);
-    }
-
-    /*
-     * Encoding: https://www.jmeiners.com/lc3-vm/supplies/lc3-isa.pdf
-     * The value of sr is stored in the memory address computed by
-     * the value base register + the offset
-     */
     template <>
-    inline void exec<STR>(const std::uint16_t op) {
-        const std::uint16_t sr ( op >> 9 & 7 );
-        const std::uint16_t base_r ( op >> 6 & 7 );
-        const std::uint16_t mem_offset { sign_extend(op & 0x3F, 6) };
+    void exec<STR>(std::uint16_t);
 
-        Memory::mem[Registers::vals[base_r] + mem_offset] = Registers::vals[sr];
-    }
-
-    /*
-     * Encoding: https://www.jmeiners.com/lc3-vm/supplies/lc3-isa.pdf
-     * Takes the value of the input register, performs a bitwise not
-     * then saves it to the direct register.
-     */
     template <>
-    inline void exec<NOT>(const std::uint16_t op) {
-        const std::uint16_t dr ( op >> 9 & 7 );
-        const std::uint16_t sr1 ( op >> 6 & 7 );
+    void exec<NOT>(std::uint16_t);
 
-        Registers::vals[dr] = ~Registers::vals[sr1];
-
-        update_cond(dr);
-    }
-
-    /*
-     * Encoding: https://www.jmeiners.com/lc3-vm/img/ldi_layout.gif
-     * Finds value behind address of memory offset + program counter then
-     * finds value behind that value and loads it into the direct register
-     */
     template <>
-    inline void exec<LDI>(const std::uint16_t op) {
-        const std::uint16_t mem_offset { sign_extend(op & 0x1FF, 9) }; /* Offset of memory to access from PC */
-        const std::uint16_t dr ( op >> 9 & 7 );
+    void exec<LDI>(std::uint16_t);
 
-        Registers::vals[dr] = Memory::mem[Memory::mem[mem_offset + Registers::vals[Registers::PC]]];
-
-        update_cond(dr);
-    }
-
-    /*
-     * Encoding: https://www.jmeiners.com/lc3-vm/supplies/lc3-isa.pdf
-     * The value of the program counter + the offset is used as a memory address which
-     * gets a value which is then treated as another memory address and finally the value of SR
-     * is stored into that final memory address.
-     */
     template <>
-    inline void exec<STI>(const std::uint16_t op) {
-        const std::uint16_t sr ( op >> 9 & 7 );
-        const std::uint16_t mem_offset { sign_extend(op & 0x1FF, 9) };
+    void exec<STI>(std::uint16_t);
 
-        Memory::mem[Memory::mem[Registers::vals[Registers::PC] + mem_offset]] = Registers::vals[sr];
-    }
-
-    /*
-     * Encoding: https://www.jmeiners.com/lc3-vm/supplies/lc3-isa.pdf
-     * Jumps the program counter unconditionally to the value held in the base register
-     */
     template <>
-    inline void exec<JMP>(const std::uint16_t op) {
-        const std::uint16_t base_r ( op >> 6 & 7 );
+    void exec<JMP>(std::uint16_t);
 
-        Registers::vals[Registers::PC] = Registers::vals[base_r];
-    }
-
-    /*
-     * Encoding: https://www.jmeiners.com/lc3-vm/supplies/lc3-isa.pdf
-     * The value of the program counter + the offset is loaded into the direct register
-     */
     template <>
-    inline void exec<LEA>(const std::uint16_t op) {
-        const std::uint16_t dr ( op >> 9 & 7 );
-        Registers::vals[dr] = Registers::vals[Registers::PC] + sign_extend(op & 0x1FF, 9);
+    void exec<LEA>(std::uint16_t);
 
-        update_cond(dr);
-    }
-
-    /*
-     * Encoding: https://www.jmeiners.com/lc3-vm/supplies/lc3-isa.pdf
-     */
     template <>
-    inline void exec<TRAP>(const std::uint16_t) {
-
-    }
+    void exec<TRAP>(std::uint16_t);
 
     inline const std::array opcode_funcs {
         opcode_func_t(&exec<BR>),
