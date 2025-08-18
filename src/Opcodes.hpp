@@ -42,7 +42,7 @@ namespace Opcodes {
      * Default unspecialized implementation.
      * Panics as valid instructions are only specialized templates.
      */
-    template <int opcode>
+    template <decltype(COUNT + 0) opcode>
     void exec(std::uint16_t) {
         std::cout << "Invalid Opcode: " << opcode << '\n';
         std::abort();

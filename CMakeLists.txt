@@ -3,4 +3,4 @@ project(lc3vm)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(lc3vm src/main.cpp src/Opcodes.cpp)
+add_executable(lc3vm src/main.cpp src/Opcodes.cpp src/Trap.cpp)

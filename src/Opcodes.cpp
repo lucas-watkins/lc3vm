@@ -4,6 +4,7 @@
 
 #include "Opcodes.hpp"
 #include "Registers.hpp"
+#include "Trap.hpp"
 
 /* Extends number into std::uint16_t. Fills in 0s for positive numbers
  * and 1s for negative numbers. The leftmost bit is the sign bit
@@ -36,9 +37,9 @@ void Opcodes::update_cond(const std::uint16_t reg) {
  * set and that bit also matches the one that is in the cond register.
  */
 template<>
-void Opcodes::exec<Opcodes::BR>(const std::uint16_t op) {
-    if (op >> 9 & 0x7 && Registers::vals[Registers::COND]) {
-        Registers::vals[Registers::PC] += sign_extend(op & 0x1FF, 9);
+void Opcodes::exec<Opcodes::BR>(const std::uint16_t instr) {
+    if (instr >> 9 & 0x7 && Registers::vals[Registers::COND]) {
+        Registers::vals[Registers::PC] += sign_extend(instr & 0x1FF, 9);
     }
 }
 
@@ -47,15 +48,15 @@ void Opcodes::exec<Opcodes::BR>(const std::uint16_t op) {
  * Adds two numbers together.
  */
 template <>
-void Opcodes::exec<Opcodes::ADD>(const std::uint16_t op) {
-    const std::uint16_t dr ( op >> 9 & 0x7 ); // destination register
-    const std::uint16_t sr1 ( op >> 6 & 0x7 ); // operand register
+void Opcodes::exec<Opcodes::ADD>(const std::uint16_t instr) {
+    const std::uint16_t dr ( instr >> 9 & 0x7 ); // destination register
+    const std::uint16_t sr1 ( instr >> 6 & 0x7 ); // operand register
 
     // are we in imm5 mode? evaluates to true if we are.
-    if (op >> 5 & 0x1) {
-        Registers::vals[dr] = Registers::vals[sr1] + sign_extend(op & 0x1F, 5);
+    if (instr >> 5 & 0x1) {
+        Registers::vals[dr] = Registers::vals[sr1] + sign_extend(instr & 0x1F, 5);
     } else {
-        const std::uint16_t sr2 ( op & 0x7 );
+        const std::uint16_t sr2 ( instr & 0x7 );
         Registers::vals[dr] = Registers::vals[sr1] + Registers::vals[sr2];
     }
 
@@ -67,11 +68,11 @@ void Opcodes::exec<Opcodes::ADD>(const std::uint16_t op) {
  * Loads value behind program counter + memory offset into direct register
  */
 template <>
-void Opcodes::exec<Opcodes::LD>(const std::uint16_t op) {
-    const std::uint16_t mem_offset { sign_extend(op & 0x1FF, 9) };
-    const std::uint16_t dr ( op >> 9 & 0x7 );
+void Opcodes::exec<Opcodes::LD>(const std::uint16_t instr) {
+    const std::uint16_t mem_offset { sign_extend(instr & 0x1FF, 9) };
+    const std::uint16_t dr ( instr >> 9 & 0x7 );
 
-    Registers::vals[dr] = Memory::mem[Registers::vals[Registers::PC] + mem_offset];
+    Registers::vals[dr] = Memory::read(Registers::vals[Registers::PC] + mem_offset);
 
     update_cond(dr);
 }
@@ -82,11 +83,11 @@ void Opcodes::exec<Opcodes::LD>(const std::uint16_t op) {
  * by adding the memory offset to the program counter.
  */
 template <>
-void Opcodes::exec<Opcodes::ST>(const std::uint16_t op) {
-    const std::uint16_t sr ( op >> 9 & 0x7 );
-    const std::uint16_t mem_offset { sign_extend(op & 0x1FF, 9) };
+void Opcodes::exec<Opcodes::ST>(const std::uint16_t instr) {
+    const std::uint16_t sr ( instr >> 9 & 0x7 );
+    const std::uint16_t mem_offset { sign_extend(instr & 0x1FF, 9) };
 
-    Memory::mem[Registers::vals[Registers::PC] + mem_offset] = Registers::vals[sr];
+    Memory::write(Registers::vals[Registers::PC] + mem_offset, Registers::vals[sr]);
 }
 
 /* Encoding: https://www.jmeiners.com/lc3-vm/supplies/lc3-isa.pdf
@@ -95,13 +96,13 @@ void Opcodes::exec<Opcodes::ST>(const std::uint16_t op) {
  * is first saved in register 7.
  */
 template <>
-void Opcodes::exec<Opcodes::JSR>(const std::uint16_t op) {
+void Opcodes::exec<Opcodes::JSR>(const std::uint16_t instr) {
     Registers::vals[Registers::R7] = Registers::vals[Registers::PC];
 
-    if (op >> 11 & 0x1 /* use offset or not (11th bit)*/) {
-        Registers::vals[Registers::PC] += sign_extend(op & 0x7FF, 11);
+    if (instr >> 11 & 0x1 /* use offset or not (11th bit)*/) {
+        Registers::vals[Registers::PC] += sign_extend(instr & 0x7FF, 11);
     } else {
-        const std::uint16_t base_r ( op >> 6 & 0x7);
+        const std::uint16_t base_r ( instr >> 6 & 0x7);
         Registers::vals[Registers::PC] = Registers::vals[base_r];
     }
 }
@@ -112,30 +113,30 @@ void Opcodes::exec<Opcodes::JSR>(const std::uint16_t op) {
  * opcode.
  */
 template <>
-void Opcodes::exec<Opcodes::AND>(const std::uint16_t op) {
-    const std::uint16_t sr1 ( op >> 6 & 0x7 );
-    const std::uint16_t dr ( op >> 9 & 0x7 );
+void Opcodes::exec<Opcodes::AND>(const std::uint16_t instr) {
+    const std::uint16_t sr1 ( instr >> 6 & 0x7 );
+    const std::uint16_t dr ( instr >> 9 & 0x7 );
 
-    if (op >> 5 & 0x1) {
-        Registers::vals[dr] = Registers::vals[sr1] & sign_extend(op & 0x1F, 5);
+    if (instr >> 5 & 0x1) {
+        Registers::vals[dr] = Registers::vals[sr1] & sign_extend(instr & 0x1F, 5);
     } else {
-        const std::uint16_t sr2 ( op & 0x7 );
+        const std::uint16_t sr2 ( instr & 0x7 );
         Registers::vals[dr] = Registers::vals[sr1] & Registers::vals[sr2];
     }
 }
 
 /*
-     * Encoding: https://www.jmeiners.com/lc3-vm/supplies/lc3-isa.pdf
-     * Loads the value at the memory address computed by getting the value
-     * of the base register and adding the offset into the direct register.
-     */
+ * Encoding: https://www.jmeiners.com/lc3-vm/supplies/lc3-isa.pdf
+ * Loads the value at the memory address computed by getting the value
+ * of the base register and adding the offset into the direct register.
+ */
 template <>
-void Opcodes::exec<Opcodes::LDR>(const std::uint16_t op) {
-    const std::uint16_t dr ( op >> 9 & 0x7);
-    const std::uint16_t base_r ( op >> 6 & 0x7 );
-    const std::uint16_t mem_offset { sign_extend(op & 0x3F, 6) };
+void Opcodes::exec<Opcodes::LDR>(const std::uint16_t instr) {
+    const std::uint16_t dr ( instr >> 9 & 0x7);
+    const std::uint16_t base_r ( instr >> 6 & 0x7 );
+    const std::uint16_t mem_offset { sign_extend(instr & 0x3F, 6) };
 
-    Registers::vals[dr] = Memory::mem[Registers::vals[base_r] + mem_offset];
+    Registers::vals[dr] = Memory::read(Registers::vals[base_r] + mem_offset);
 
     update_cond(Registers::vals[dr]);
 }
@@ -146,12 +147,12 @@ void Opcodes::exec<Opcodes::LDR>(const std::uint16_t op) {
  * the value base register + the offset
  */
 template <>
-void Opcodes::exec<Opcodes::STR>(const std::uint16_t op) {
-    const std::uint16_t sr ( op >> 9 & 0x7 );
-    const std::uint16_t base_r ( op >> 6 & 0x7 );
-    const std::uint16_t mem_offset { sign_extend(op & 0x3F, 6) };
+void Opcodes::exec<Opcodes::STR>(const std::uint16_t instr) {
+    const std::uint16_t sr ( instr >> 9 & 0x7 );
+    const std::uint16_t base_r ( instr >> 6 & 0x7 );
+    const std::uint16_t mem_offset { sign_extend(instr & 0x3F, 6) };
 
-    Memory::mem[Registers::vals[base_r] + mem_offset] = Registers::vals[sr];
+    Memory::write(Registers::vals[base_r] + mem_offset, Registers::vals[sr]);
 }
 
 /*
@@ -160,9 +161,9 @@ void Opcodes::exec<Opcodes::STR>(const std::uint16_t op) {
  * then saves it to the direct register.
  */
 template <>
-void Opcodes::exec<Opcodes::NOT>(const std::uint16_t op) {
-    const std::uint16_t dr ( op >> 9 & 0x7 );
-    const std::uint16_t sr1 ( op >> 6 & 0x7 );
+void Opcodes::exec<Opcodes::NOT>(const std::uint16_t instr) {
+    const std::uint16_t dr ( instr >> 9 & 0x7 );
+    const std::uint16_t sr1 ( instr >> 6 & 0x7 );
 
     Registers::vals[dr] = ~Registers::vals[sr1];
 
@@ -175,11 +176,11 @@ void Opcodes::exec<Opcodes::NOT>(const std::uint16_t op) {
  * finds value behind that value and loads it into the direct register
  */
 template <>
-void Opcodes::exec<Opcodes::LDI>(const std::uint16_t op) {
-    const std::uint16_t mem_offset { sign_extend(op & 0x1FF, 9) }; /* Offset of memory to access from PC */
-    const std::uint16_t dr ( op >> 9 & 0x7 );
+void Opcodes::exec<Opcodes::LDI>(const std::uint16_t instr) {
+    const std::uint16_t mem_offset { sign_extend(instr & 0x1FF, 9) }; /* Offset of memory to access from PC */
+    const std::uint16_t dr ( instr >> 9 & 0x7 );
 
-    Registers::vals[dr] = Memory::mem[Memory::mem[mem_offset + Registers::vals[Registers::PC]]];
+    Registers::vals[dr] = Memory::read(Memory::read(mem_offset + Registers::vals[Registers::PC]));
 
     update_cond(dr);
 }
@@ -191,11 +192,14 @@ void Opcodes::exec<Opcodes::LDI>(const std::uint16_t op) {
  * is stored into that final memory address.
  */
 template <>
-void Opcodes::exec<Opcodes::STI>(const std::uint16_t op) {
-    const std::uint16_t sr ( op >> 9 & 0x7 );
-    const std::uint16_t mem_offset { sign_extend(op & 0x1FF, 9) };
+void Opcodes::exec<Opcodes::STI>(const std::uint16_t instr) {
+    const std::uint16_t sr ( instr >> 9 & 0x7 );
+    const std::uint16_t mem_offset { sign_extend(instr & 0x1FF, 9) };
 
-    Memory::mem[Memory::mem[Registers::vals[Registers::PC] + mem_offset]] = Registers::vals[sr];
+    Memory::write(
+        Memory::read(Registers::vals[Registers::PC] + mem_offset),
+        Registers::vals[sr]
+    );
 }
 
 /*
@@ -203,28 +207,51 @@ void Opcodes::exec<Opcodes::STI>(const std::uint16_t op) {
  * Jumps the program counter unconditionally to the value held in the base register
  */
 template <>
-void Opcodes::exec<Opcodes::JMP>(const std::uint16_t op) {
-    const std::uint16_t base_r ( op >> 6 & 0x7 );
+void Opcodes::exec<Opcodes::JMP>(const std::uint16_t instr) {
+    const std::uint16_t base_r ( instr >> 6 & 0x7 );
 
     Registers::vals[Registers::PC] = Registers::vals[base_r];
 }
 
 /*
-     * Encoding: https://www.jmeiners.com/lc3-vm/supplies/lc3-isa.pdf
-     * The value of the program counter + the offset is loaded into the direct register
-     */
+ * Encoding: https://www.jmeiners.com/lc3-vm/supplies/lc3-isa.pdf
+ * The value of the program counter + the offset is loaded into the direct register
+ */
 template <>
-void Opcodes::exec<Opcodes::LEA>(const std::uint16_t op) {
-    const std::uint16_t dr ( op >> 9 & 0x7 );
-    Registers::vals[dr] = Registers::vals[Registers::PC] + sign_extend(op & 0x1FF, 9);
-
+void Opcodes::exec<Opcodes::LEA>(const std::uint16_t instr) {
+    const std::uint16_t dr ( instr >> 9 & 0x7 );
+    Registers::vals[dr] = Registers::vals[Registers::PC] + sign_extend(instr & 0x1FF, 9);
     update_cond(dr);
 }
 
 /*
  * Encoding: https://www.jmeiners.com/lc3-vm/supplies/lc3-isa.pdf
+ * Executes the corresponding trap code which is a predefined route
+ * to perform a certain action, such as reading input.
  */
 template <>
-void Opcodes::exec<Opcodes::TRAP>(const std::uint16_t op) {
-
+void Opcodes::exec<Opcodes::TRAP>(const std::uint16_t instr) {
+    switch (instr & 0xFF) {
+        case Trap::GETC:
+            Trap::exec<Trap::GETC>();
+            break;
+        case Trap::OUT:
+            Trap::exec<Trap::OUT>();
+            break;
+        case Trap::PUTS:
+            Trap::exec<Trap::PUTS>();
+            break;
+        case Trap::IN:
+            Trap::exec<Trap::IN>();
+            break;
+        case Trap::PUTSP:
+            Trap::exec<Trap::PUTSP>();
+            break;
+        case Trap::HALT:
+            Trap::exec<Trap::HALT>();
+            break;
+        default:
+            Trap::exec<Trap::COUNT>(); // Invalid and panics
+            break;
+    }
 }
