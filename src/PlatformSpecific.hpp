@@ -19,7 +19,7 @@
 #endif
 
 #if defined(__unix__) || defined(__linux__) || defined(__APPLE__)
-//inline termios original_tio {};
+inline termios original_tio {};
 #elif defined(_WIN32)
 HANDLE hStdin = INVALID_HANDLE_VALUE;
 DWORD fdwMode, fdwOldMode;
@@ -27,27 +27,27 @@ DWORD fdwMode, fdwOldMode;
 #error Unrecognized OS
 #endif
 
-/*inline std::uint16_t check_key() {
+inline bool check_key() {
 #if defined(__unix__) || defined(__linux__) || defined(__APPLE__)
     fd_set readfds;
     FD_ZERO(&readfds);
     FD_SET(STDIN_FILENO, &readfds);
 
-    struct timeval timeout;
+    static timeval timeout {};
     timeout.tv_sec = 0;
     timeout.tv_usec = 0;
-    return select(1, &readfds, NULL, NULL, &timeout) != 0;
+    return select(1, &readfds, nullptr, nullptr, &timeout) != 0;
 #elif defined(_WIN32)
     return WaitForSingleObject(hStdin, 1000) == WAIT_OBJECT_0 && _kbhit();
 #else
 #error Unrecognized OS
 #endif
-}*/
+}
 
-/*inline void disable_input_buffering() {
+inline void disable_input_buffering() {
 #if defined(__unix__) || defined(__linux__) || defined(__APPLE__)
     tcgetattr(STDIN_FILENO, &original_tio);
-    struct termios new_tio = original_tio;
+    termios new_tio = original_tio;
     new_tio.c_lflag &= ~ICANON & ~ECHO;
     tcsetattr(STDIN_FILENO, TCSANOW, &new_tio);
 #elif defined(_WIN32)
@@ -61,9 +61,9 @@ DWORD fdwMode, fdwOldMode;
 #else
 #error Unrecognized OS
 #endif
-}*/
+}
 
-/*inline void restore_input_buffering() {
+inline void restore_input_buffering() {
 #if defined(__unix__) || defined(__linux__) || defined(__APPLE__)
     tcsetattr(STDIN_FILENO, TCSANOW, &original_tio);
 #elif defined(_WIN32)
@@ -71,6 +71,6 @@ DWORD fdwMode, fdwOldMode;
 #else
 #error Unrecognized OS
 #endif
-}*/
+}
 
 #endif //LC3VM_PLATFORMSPECIFIC_HPP

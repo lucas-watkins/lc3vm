@@ -11,8 +11,8 @@
 namespace CondFlags {
     enum {
         POS  = 1 << 0,
-        ZERO  = 1 << 1,
-        NEG = 1 << 2,
+        ZERO = 1 << 1,
+        NEG  = 1 << 2,
     };
 }
 

@@ -8,10 +8,13 @@
 #include "Registers.hpp"
 #include "PlatformSpecific.hpp"
 
-/* Reads a character and copies it into register 0 */
-void read_char() {
-    Registers::vals[Registers::R0] = static_cast<unsigned char>( std::cin.get() );
-    std::cin.ignore(std::numeric_limits<std::streamsize>::max());
+/* Reads a character and returns it */
+unsigned char read_char() {
+    const unsigned char c ( std::cin.get() );
+
+    // no std::cin.ignore() because we already disabled the buffer earlier
+
+    return c;
 }
 
 template <>
@@ -20,34 +23,25 @@ void Trap::exec<Trap::PUTS>() {
     std::uint16_t addr { Registers::vals[Registers::R0] };
 
     while (Memory::read(addr) != 0x0) {
-        putc(static_cast<char>(Memory::read(addr++)), stdout);
+        std::cout << static_cast<unsigned char>(Memory::read(addr++));
     }
 
-    fflush(stdout);
-}
-
-template <>
-void Trap::exec<Trap::HALT>() {
-    puts("\n** Program Halted **\n");
-    fflush(stdout);
-    //restore_input_buffering();
-    std::exit(EXIT_SUCCESS);
+    std::cout << std::flush;
 }
 
 /* Outputs a single character located in register 0 */
 template <>
 void Trap::exec<Trap::OUT>() {
-    putc(static_cast<char>(Registers::vals[Registers::R0]), stdout);
-    fflush(stdout);
+    std::cout << static_cast<unsigned char>(Registers::vals[Registers::R0]) << std::flush;
 }
 
 template<>
 void Trap::exec<Trap::IN>() {
-    printf("Enter a character: ");
-    const char c = getchar();
-    putc(c, stdout);
-    fflush(stdout);
-    Registers::vals[Registers::R0] = static_cast<std::uint16_t>( c );
+    std::cout << "Enter a character: ";
+    const unsigned char c ( read_char() );
+    std::cout << c << std::flush;
+
+    Registers::vals[Registers::R0] = c;
     Opcodes::update_cond(Registers::R0);
 }
 
@@ -60,18 +54,18 @@ void Trap::exec<Trap::PUTSP>() {
         const unsigned char char1 ( chars & 0xFF );
         const unsigned char char2 ( chars >> 8 );
 
-        putc(char1, stdout);
+        std::cout << char1;
         if (char2) {
-            putc(char2, stdout);
+            std::cout << char2;
         }
 
         ++addr;
     }
-    fflush(stdout);
+    std::cout << std::flush;
 }
 
 template <>
 void Trap::exec<Trap::GETC>() {
-    Registers::vals[Registers::R0] = static_cast<std::uint16_t> ( getchar() );
+    Registers::vals[Registers::R0] = read_char();
     Opcodes::update_cond(Registers::R0);
 }

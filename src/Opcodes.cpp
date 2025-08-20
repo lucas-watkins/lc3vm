@@ -6,7 +6,8 @@
 #include "Registers.hpp"
 #include "Trap.hpp"
 
-/* Extends number into std::uint16_t. Fills in 0s for positive numbers
+/*
+ * Extends number into std::uint16_t. Fills in 0s for positive numbers
  * and 1s for negative numbers. The leftmost bit is the sign bit
  * (0 -> positive, 1 -> negative).
  * @param std::uint16_t x (the actual number being extended)
@@ -18,7 +19,8 @@ std::uint16_t Opcodes::sign_extend(const std::uint16_t x, const std::size_t num_
     return x; // otherwise just implicitly cast to std::uint16_t (which fills in 0s)
 }
 
-/* Updates register COND with the information about the sign of the previous calculation
+/*
+ * Updates register COND with the information about the sign of the previous calculation
  * @param std::uint16_t reg (the register that has the result of the previous calculation)
  */
 void Opcodes::update_cond(const std::uint16_t reg) {
@@ -91,7 +93,8 @@ void Opcodes::exec<Opcodes::ST>(const std::uint16_t instr) {
     Memory::write(Registers::vals[Registers::PC] + mem_offset, Registers::vals[sr]);
 }
 
-/* Encoding: https://www.jmeiners.com/lc3-vm/supplies/lc3-isa.pdf
+/*
+ * Encoding: https://www.jmeiners.com/lc3-vm/supplies/lc3-isa.pdf
  * Sets the program counter to be equal to the value specified in offset
  * by default or value in the specified register. Program counter value
  * is first saved in register 7.
@@ -108,7 +111,8 @@ void Opcodes::exec<Opcodes::JSR>(const std::uint16_t instr) {
     }
 }
 
-/* Encoding: https://www.jmeiners.com/lc3-vm/supplies/lc3-isa.pdf
+/*
+ * Encoding: https://www.jmeiners.com/lc3-vm/supplies/lc3-isa.pdf
  * When bit 5 is zero, bitwise and the value located in sr2
  * otherwise when in imm5 mode use the hardcoded value in that
  * opcode.
@@ -250,9 +254,6 @@ void Opcodes::exec<Opcodes::TRAP>(const std::uint16_t instr) {
             break;
         case Trap::PUTSP:
             Trap::exec<Trap::PUTSP>();
-            break;
-        case Trap::HALT:
-            Trap::exec<Trap::HALT>();
             break;
         default:
             Trap::exec<Trap::COUNT>(); // Invalid and panics

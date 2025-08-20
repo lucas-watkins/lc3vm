@@ -27,17 +27,15 @@ namespace Memory {
 
     inline std::uint16_t read(const std::uint16_t addr) {
         if (addr == KBSR) {
-            if (false) {
+            if (check_key()) {
                 mem[KBSR] = 1 << 15;
                 mem[KBDR] = getchar();
             } else {
                 mem[KBSR] = 0;
             }
         }
-
         return mem[addr];
     }
-
 }
 
 #endif //LC3VM_MEMORY_HPP
