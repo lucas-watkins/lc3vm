@@ -4,13 +4,9 @@
 
 #include "Trap.hpp"
 #include "Memory.hpp"
+#include "Opcodes.hpp"
 #include "Registers.hpp"
-
-#if  defined(__unix__) || defined(__APPLE__) || defined(__linux__)
-#include <sys/termios.h>
-#elif defined(_WIN32)
-#include <Windows.h>
-#endif
+#include "PlatformSpecific.hpp"
 
 /* Reads a character and copies it into register 0 */
 void read_char() {
@@ -24,64 +20,58 @@ void Trap::exec<Trap::PUTS>() {
     std::uint16_t addr { Registers::vals[Registers::R0] };
 
     while (Memory::read(addr) != 0x0) {
-        std::cout << static_cast<unsigned char>(Memory::read(addr++));
+        putc(static_cast<char>(Memory::read(addr++)), stdout);
     }
+
+    fflush(stdout);
 }
 
 template <>
 void Trap::exec<Trap::HALT>() {
-    std::cout << "\n** Program Halted **\n";
+    puts("\n** Program Halted **\n");
+    fflush(stdout);
+    //restore_input_buffering();
     std::exit(EXIT_SUCCESS);
 }
 
 /* Outputs a single character located in register 0 */
 template <>
 void Trap::exec<Trap::OUT>() {
-    std::cout << static_cast<unsigned char>(Registers::vals[Registers::R0] & 0xFF);
+    putc(static_cast<char>(Registers::vals[Registers::R0]), stdout);
+    fflush(stdout);
 }
 
 template<>
 void Trap::exec<Trap::IN>() {
-    read_char();
+    printf("Enter a character: ");
+    const char c = getchar();
+    putc(c, stdout);
+    fflush(stdout);
+    Registers::vals[Registers::R0] = static_cast<std::uint16_t>( c );
+    Opcodes::update_cond(Registers::R0);
 }
 
 template<>
 void Trap::exec<Trap::PUTSP>() {
-    std::uint16_t addr { Memory::read(Registers::vals[Registers::R0]) };
+    std::uint16_t addr { Registers::vals[Registers::R0] };
 
     while (Memory::read(addr) != 0x0) {
-        for ( int shift { 0 }; shift <= 8; shift += 8) {
-            if (const unsigned char c = Memory::read(addr) >> shift & 0xFF ) {
-                std::cout << c;
-            }
+        const std::uint16_t chars { Memory::read(addr) };
+        const unsigned char char1 ( chars & 0xFF );
+        const unsigned char char2 ( chars >> 8 );
+
+        putc(char1, stdout);
+        if (char2) {
+            putc(char2, stdout);
         }
+
         ++addr;
     }
+    fflush(stdout);
 }
 
 template <>
 void Trap::exec<Trap::GETC>() {
-#if defined(__unix__) || defined(__APPLE__) || defined(__linux__)
-    static termios term {};
-    tcgetattr(fileno(stdin), &term);
-
-    term.c_lflag &= ~ECHO;
-    tcsetattr(fileno(stdin), TCSANOW, &term);
-
-    read_char();
-
-    term.c_lflag &= ECHO;
-    tcsetattr(fileno(stdin), TCSANOW, &term);
-#elif defined(_WIN32)
-    HANDLE stdin_handle { GetStdHandle(STD_INPUT_HANDLE) };
-    static DWORD console_mode {};
-    GetConsoleMode(stdin_handle, &console_mode);
-    SetConsoleMode(stdin_handle, console_mode & ~ENABLE_ECHO_INPUT);
-
-    read_char();
-
-    SetConsoleMode(stdin_handle, console_mode & ENABLE_ECHO_INPUT);
-#else
-    static_assert(false, "Unrecognized OS");
-#endif
+    Registers::vals[Registers::R0] = static_cast<std::uint16_t> ( getchar() );
+    Opcodes::update_cond(Registers::R0);
 }

@@ -13,7 +13,7 @@
  * @param std::size_t num_bits (the bits that x originally had)
  */
 std::uint16_t Opcodes::sign_extend(const std::uint16_t x, const std::size_t num_bits) {
-    if (x >> (num_bits - 1) & 1) // if this statement is true, x represents a negative number
+    if (x >> (num_bits - 1) & 0x1) // if this statement is true, x represents a negative number
         return x | 0xFFFF << num_bits;
     return x; // otherwise just implicitly cast to std::uint16_t (which fills in 0s)
 }
@@ -24,10 +24,10 @@ std::uint16_t Opcodes::sign_extend(const std::uint16_t x, const std::size_t num_
 void Opcodes::update_cond(const std::uint16_t reg) {
     if (Registers::vals[reg] == 0) {
         Registers::vals[Registers::COND] = CondFlags::ZERO;
-    } else if (Registers::vals[reg] >> 15 == 0) {
-        Registers::vals[Registers::COND] = CondFlags::POS;
-    } else if (Registers::vals[reg] >> 15 == 1) {
+    } else if (Registers::vals[reg] >> 15) {
         Registers::vals[Registers::COND] = CondFlags::NEG;
+    } else {
+        Registers::vals[Registers::COND] = CondFlags::POS;
     }
 }
 
@@ -38,7 +38,8 @@ void Opcodes::update_cond(const std::uint16_t reg) {
  */
 template<>
 void Opcodes::exec<Opcodes::BR>(const std::uint16_t instr) {
-    if (instr >> 9 & 0x7 && Registers::vals[Registers::COND]) {
+    const std::uint16_t cond_flag ( instr >> 9 & 0x7 );
+    if (cond_flag & Registers::vals[Registers::COND]) {
         Registers::vals[Registers::PC] += sign_extend(instr & 0x1FF, 9);
     }
 }
@@ -102,7 +103,7 @@ void Opcodes::exec<Opcodes::JSR>(const std::uint16_t instr) {
     if (instr >> 11 & 0x1 /* use offset or not (11th bit)*/) {
         Registers::vals[Registers::PC] += sign_extend(instr & 0x7FF, 11);
     } else {
-        const std::uint16_t base_r ( instr >> 6 & 0x7);
+        const std::uint16_t base_r ( instr >> 6 & 0x7 );
         Registers::vals[Registers::PC] = Registers::vals[base_r];
     }
 }
@@ -138,7 +139,7 @@ void Opcodes::exec<Opcodes::LDR>(const std::uint16_t instr) {
 
     Registers::vals[dr] = Memory::read(Registers::vals[base_r] + mem_offset);
 
-    update_cond(Registers::vals[dr]);
+    update_cond(dr);
 }
 
 /*
@@ -231,6 +232,9 @@ void Opcodes::exec<Opcodes::LEA>(const std::uint16_t instr) {
  */
 template <>
 void Opcodes::exec<Opcodes::TRAP>(const std::uint16_t instr) {
+
+    Registers::vals[Registers::R7] = Registers::vals[Registers::PC];
+
     switch (instr & 0xFF) {
         case Trap::GETC:
             Trap::exec<Trap::GETC>();

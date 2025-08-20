@@ -10,9 +10,9 @@
 /* Condition flags used for results of logical comparisons */
 namespace CondFlags {
     enum {
-        POS  = 1,
-        NEG  = 2,
-        ZERO = 4,
+        POS  = 1 << 0,
+        ZERO  = 1 << 1,
+        NEG = 1 << 2,
     };
 }
 
