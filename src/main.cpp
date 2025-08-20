@@ -68,13 +68,17 @@ int main(int argc, const char *const argv[]) {
     disable_input_buffering();
 
     /* The default value in the COND register is 0 */
-    Registers::vals[Registers::COND] = CondFlags::ZERO;
+    Registers::write(Registers::COND, CondFlags::ZERO);
 
     /* Program counter needs to be in the starting position */
-    Registers::vals[Registers::PC] = Registers::pc_start;
+    Registers::write(Registers::PC, Registers::pc_start);
 
     bool running { true };
     while (running) {
+        /*
+         * No Registers::read() because the value is copied when using read, and we
+         * need to modify it, but doing another read and write after every instruction is painful.
+         */
         const std::uint16_t instr { Memory::read(Registers::vals[Registers::PC]++) };
 
         const std::uint16_t opcode ( instr >> 12 );

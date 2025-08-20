@@ -20,7 +20,7 @@ unsigned char read_char() {
 template <>
 void Trap::exec<Trap::PUTS>() {
     // String's starting address is in register 0
-    std::uint16_t addr { Registers::vals[Registers::R0] };
+    std::uint16_t addr { Registers::read(Registers::R0) };
 
     while (Memory::read(addr) != 0x0) {
         std::cout << static_cast<unsigned char>(Memory::read(addr++));
@@ -32,7 +32,7 @@ void Trap::exec<Trap::PUTS>() {
 /* Outputs a single character located in register 0 */
 template <>
 void Trap::exec<Trap::OUT>() {
-    std::cout << static_cast<unsigned char>(Registers::vals[Registers::R0]) << std::flush;
+    std::cout << static_cast<unsigned char>(Registers::read(Registers::R0)) << std::flush;
 }
 
 template<>
@@ -41,13 +41,13 @@ void Trap::exec<Trap::IN>() {
     const unsigned char c ( read_char() );
     std::cout << c << std::flush;
 
-    Registers::vals[Registers::R0] = c;
+    Registers::write(Registers::R0, c);
     Opcodes::update_cond(Registers::R0);
 }
 
 template<>
 void Trap::exec<Trap::PUTSP>() {
-    std::uint16_t addr { Registers::vals[Registers::R0] };
+    std::uint16_t addr { Registers::read(Registers::R0) };
 
     while (Memory::read(addr) != 0x0) {
         const std::uint16_t chars { Memory::read(addr) };
@@ -66,6 +66,6 @@ void Trap::exec<Trap::PUTSP>() {
 
 template <>
 void Trap::exec<Trap::GETC>() {
-    Registers::vals[Registers::R0] = read_char();
+    Registers::write(Registers::R0, read_char());
     Opcodes::update_cond(Registers::R0);
 }

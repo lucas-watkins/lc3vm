@@ -24,12 +24,12 @@ std::uint16_t Opcodes::sign_extend(const std::uint16_t x, const std::size_t num_
  * @param std::uint16_t reg (the register that has the result of the previous calculation)
  */
 void Opcodes::update_cond(const std::uint16_t reg) {
-    if (Registers::vals[reg] == 0) {
-        Registers::vals[Registers::COND] = CondFlags::ZERO;
-    } else if (Registers::vals[reg] >> 15) {
-        Registers::vals[Registers::COND] = CondFlags::NEG;
+    if (Registers::read(reg) == 0) {
+        Registers::write(Registers::COND, CondFlags::ZERO);
+    } else if (Registers::read(reg) >> 15) {
+        Registers::write(Registers::COND, CondFlags::NEG);
     } else {
-        Registers::vals[Registers::COND] = CondFlags::POS;
+        Registers::write(Registers::COND, CondFlags::POS);
     }
 }
 
@@ -41,8 +41,11 @@ void Opcodes::update_cond(const std::uint16_t reg) {
 template<>
 void Opcodes::exec<Opcodes::BR>(const std::uint16_t instr) {
     const std::uint16_t cond_flag ( instr >> 9 & 0x7 );
-    if (cond_flag & Registers::vals[Registers::COND]) {
-        Registers::vals[Registers::PC] += sign_extend(instr & 0x1FF, 9);
+    if (cond_flag & Registers::read(Registers::COND)) {
+        Registers::write(
+            Registers::PC,
+            Registers::read(Registers::PC) + sign_extend(instr & 0x1FF, 9)
+        );
     }
 }
 
@@ -57,10 +60,10 @@ void Opcodes::exec<Opcodes::ADD>(const std::uint16_t instr) {
 
     // are we in imm5 mode? evaluates to true if we are.
     if (instr >> 5 & 0x1) {
-        Registers::vals[dr] = Registers::vals[sr1] + sign_extend(instr & 0x1F, 5);
+        Registers::write(dr, Registers::read(sr1) + sign_extend(instr & 0x1F, 5));
     } else {
         const std::uint16_t sr2 ( instr & 0x7 );
-        Registers::vals[dr] = Registers::vals[sr1] + Registers::vals[sr2];
+        Registers::write(dr, Registers::read(sr1) + Registers::read(sr2));
     }
 
     update_cond(dr);
@@ -75,7 +78,7 @@ void Opcodes::exec<Opcodes::LD>(const std::uint16_t instr) {
     const std::uint16_t mem_offset { sign_extend(instr & 0x1FF, 9) };
     const std::uint16_t dr ( instr >> 9 & 0x7 );
 
-    Registers::vals[dr] = Memory::read(Registers::vals[Registers::PC] + mem_offset);
+    Registers::write(dr, Memory::read(Registers::read(Registers::PC) + mem_offset));
 
     update_cond(dr);
 }
@@ -90,7 +93,7 @@ void Opcodes::exec<Opcodes::ST>(const std::uint16_t instr) {
     const std::uint16_t sr ( instr >> 9 & 0x7 );
     const std::uint16_t mem_offset { sign_extend(instr & 0x1FF, 9) };
 
-    Memory::write(Registers::vals[Registers::PC] + mem_offset, Registers::vals[sr]);
+    Memory::write(Registers::read(Registers::PC) + mem_offset, Registers::read(sr));
 }
 
 /*
@@ -101,13 +104,16 @@ void Opcodes::exec<Opcodes::ST>(const std::uint16_t instr) {
  */
 template <>
 void Opcodes::exec<Opcodes::JSR>(const std::uint16_t instr) {
-    Registers::vals[Registers::R7] = Registers::vals[Registers::PC];
+    Registers::write(Registers::R7, Registers::read(Registers::PC));
 
     if (instr >> 11 & 0x1 /* use offset or not (11th bit)*/) {
-        Registers::vals[Registers::PC] += sign_extend(instr & 0x7FF, 11);
+        Registers::write(
+            Registers::PC,
+            Registers::read(Registers::PC) + sign_extend(instr & 0x7FF, 11)
+        );
     } else {
         const std::uint16_t base_r ( instr >> 6 & 0x7 );
-        Registers::vals[Registers::PC] = Registers::vals[base_r];
+        Registers::write(Registers::PC, Registers::read(base_r));
     }
 }
 
@@ -123,10 +129,10 @@ void Opcodes::exec<Opcodes::AND>(const std::uint16_t instr) {
     const std::uint16_t dr ( instr >> 9 & 0x7 );
 
     if (instr >> 5 & 0x1) {
-        Registers::vals[dr] = Registers::vals[sr1] & sign_extend(instr & 0x1F, 5);
+        Registers::write(dr, Registers::read(sr1) & sign_extend(instr & 0x1F, 5));
     } else {
         const std::uint16_t sr2 ( instr & 0x7 );
-        Registers::vals[dr] = Registers::vals[sr1] & Registers::vals[sr2];
+        Registers::write(dr, Registers::read(sr1) & Registers::read(sr2));
     }
 }
 
@@ -141,7 +147,7 @@ void Opcodes::exec<Opcodes::LDR>(const std::uint16_t instr) {
     const std::uint16_t base_r ( instr >> 6 & 0x7 );
     const std::uint16_t mem_offset { sign_extend(instr & 0x3F, 6) };
 
-    Registers::vals[dr] = Memory::read(Registers::vals[base_r] + mem_offset);
+    Registers::write(dr, Memory::read(Registers::read(base_r) + mem_offset));
 
     update_cond(dr);
 }
@@ -157,7 +163,7 @@ void Opcodes::exec<Opcodes::STR>(const std::uint16_t instr) {
     const std::uint16_t base_r ( instr >> 6 & 0x7 );
     const std::uint16_t mem_offset { sign_extend(instr & 0x3F, 6) };
 
-    Memory::write(Registers::vals[base_r] + mem_offset, Registers::vals[sr]);
+    Memory::write(Registers::read(base_r) + mem_offset, Registers::read(sr));
 }
 
 /*
@@ -170,7 +176,7 @@ void Opcodes::exec<Opcodes::NOT>(const std::uint16_t instr) {
     const std::uint16_t dr ( instr >> 9 & 0x7 );
     const std::uint16_t sr1 ( instr >> 6 & 0x7 );
 
-    Registers::vals[dr] = ~Registers::vals[sr1];
+    Registers::write(dr, ~Registers::read(sr1));
 
     update_cond(dr);
 }
@@ -185,7 +191,7 @@ void Opcodes::exec<Opcodes::LDI>(const std::uint16_t instr) {
     const std::uint16_t mem_offset { sign_extend(instr & 0x1FF, 9) }; /* Offset of memory to access from PC */
     const std::uint16_t dr ( instr >> 9 & 0x7 );
 
-    Registers::vals[dr] = Memory::read(Memory::read(mem_offset + Registers::vals[Registers::PC]));
+    Registers::write(dr, Memory::read(Memory::read(mem_offset + Registers::read(Registers::PC))));
 
     update_cond(dr);
 }
@@ -202,8 +208,8 @@ void Opcodes::exec<Opcodes::STI>(const std::uint16_t instr) {
     const std::uint16_t mem_offset { sign_extend(instr & 0x1FF, 9) };
 
     Memory::write(
-        Memory::read(Registers::vals[Registers::PC] + mem_offset),
-        Registers::vals[sr]
+        Memory::read(Registers::read(Registers::PC) + mem_offset),
+        Registers::read(sr)
     );
 }
 
@@ -215,7 +221,7 @@ template <>
 void Opcodes::exec<Opcodes::JMP>(const std::uint16_t instr) {
     const std::uint16_t base_r ( instr >> 6 & 0x7 );
 
-    Registers::vals[Registers::PC] = Registers::vals[base_r];
+    Registers::write(Registers::PC, Registers::read(base_r));
 }
 
 /*
@@ -225,7 +231,7 @@ void Opcodes::exec<Opcodes::JMP>(const std::uint16_t instr) {
 template <>
 void Opcodes::exec<Opcodes::LEA>(const std::uint16_t instr) {
     const std::uint16_t dr ( instr >> 9 & 0x7 );
-    Registers::vals[dr] = Registers::vals[Registers::PC] + sign_extend(instr & 0x1FF, 9);
+    Registers::write(dr, Registers::read(Registers::PC) + sign_extend(instr & 0x1FF, 9));
     update_cond(dr);
 }
 
@@ -237,7 +243,7 @@ void Opcodes::exec<Opcodes::LEA>(const std::uint16_t instr) {
 template <>
 void Opcodes::exec<Opcodes::TRAP>(const std::uint16_t instr) {
 
-    Registers::vals[Registers::R7] = Registers::vals[Registers::PC];
+    Registers::write(Registers::R7, Registers::read(Registers::PC));
 
     switch (instr & 0xFF) {
         case Trap::GETC:

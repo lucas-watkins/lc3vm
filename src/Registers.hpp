@@ -36,6 +36,14 @@ namespace Registers {
 
     inline std::array<std::uint16_t, COUNT> vals {}; /* values of all registers */
 
+    inline std::uint16_t read(const decltype(COUNT + 0) reg) {
+        return vals[reg];
+    }
+
+    inline void write(const decltype(COUNT + 0) reg, std::uint16_t val) {
+        vals[reg] = val;
+    }
+
 }
 
 #endif //LC3VM_REGISTERS_HPP
