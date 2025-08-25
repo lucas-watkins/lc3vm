@@ -58,9 +58,15 @@ void handle_interrupt(const int _) {
     std::exit(-2);
 }
 
-int main(int argc, const char *const argv[]) {
+int main(const int argc, const char *const argv[]) {
 
-    if (!read_image("2048")) {
+    if (argc != 2) {
+        std::cout << "Usage: lc3vm [path to image file]\n";
+        return 0;
+    }
+
+    if (!read_image(argv[1])) {
+        std::cout << "** Failed to read image **\n";
         return -1;
     }
 
