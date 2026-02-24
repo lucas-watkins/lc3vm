@@ -5,6 +5,7 @@
 #ifndef LC3VM_MEMORY_HPP
 #define LC3VM_MEMORY_HPP
 #include <array>
+#include <cstdint>
 #include "PlatformSpecific.hpp"
 
 namespace Memory {
